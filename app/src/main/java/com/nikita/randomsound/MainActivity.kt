@@ -1,47 +1,191 @@
 package com.nikita.randomsound
 
-import android.content.Intent
-import android.media.MediaPlayer
-import android.net.Uri
+import android.content.Context
+import android.net.wifi.WifiManager
 import android.os.Bundle
+import android.widget.ArrayAdapter
 import android.widget.Button
-import android.widget.LinearLayout
+import android.widget.EditText
+import android.widget.ListView
 import android.widget.TextView
+import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
-import kotlin.random.Random
+import java.io.File
+import java.net.DatagramPacket
+import java.net.DatagramSocket
+import java.net.InetAddress
+import java.util.concurrent.Executors
+import java.util.concurrent.TimeUnit
 
 class MainActivity : AppCompatActivity() {
-    private val sounds = mutableListOf<Uri>()
-    private var player: MediaPlayer? = null
-    private lateinit var status: TextView
+    private lateinit var statusText: TextView
+    private lateinit var targetInput: EditText
+    private lateinit var portInput: EditText
+    private lateinit var scanBtn: Button
+    private lateinit var testBtn: Button
+    private lateinit var stopBtn: Button
+    private lateinit var deviceList: ListView
+
+    private val devices = ArrayList<String>()
+    private lateinit var adapter: ArrayAdapter<String>
+    private var scanRunning = false
+    private var testRunning = false
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        val layout = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL; setPadding(48, 64, 48, 48) }
-        status = TextView(this).apply { text = "Звуки не выбраны"; textSize = 18f }
-        val pick = Button(this).apply { text = "Выбрать звуки"; setOnClickListener { pickSounds() } }
-        val play = Button(this).apply { text = "Случайный звук"; setOnClickListener { playRandom() } }
-        val stop = Button(this).apply { text = "Остановить"; setOnClickListener { player?.stop(); player?.release(); player = null } }
-        layout.addView(status); layout.addView(pick); layout.addView(play); layout.addView(stop)
-        setContentView(layout)
+        setContentView(R.layout.activity_main)
+
+        statusText = findViewById(R.id.statusText)
+        targetInput = findViewById(R.id.targetInput)
+        portInput = findViewById(R.id.portInput)
+        scanBtn = findViewById(R.id.scanBtn)
+        testBtn = findViewById(R.id.testBtn)
+        stopBtn = findViewById(R.id.stopBtn)
+        deviceList = findViewById(R.id.deviceList)
+
+        adapter = ArrayAdapter(this, android.R.layout.simple_list_item_1, devices)
+        deviceList.adapter = adapter
+
+        scanBtn.setOnClickListener { scanNetworkAsync() }
+        testBtn.setOnClickListener { testConnection() }
+        stopBtn.setOnClickListener {
+            scanRunning = false
+            testRunning = false
+            statusText.text = "ОСТАНОВЛЕНО"
+            setBusy(false)
+        }
+
+        deviceList.setOnItemClickListener { _, _, position, _ ->
+            targetInput.setText(devices[position].substringBefore(" | "))
+        }
     }
 
-    private fun pickSounds() {
-        startActivityForResult(Intent(Intent.ACTION_OPEN_DOCUMENT).apply { type = "audio/*"; putExtra(Intent.EXTRA_ALLOW_MULTIPLE, true); addCategory(Intent.CATEGORY_OPENABLE) }, 10)
+    private fun setBusy(busy: Boolean) {
+        scanBtn.isEnabled = !busy
+        testBtn.isEnabled = !busy
     }
 
-    override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
-        super.onActivityResult(requestCode, resultCode, data)
-        if (requestCode != 10 || resultCode != RESULT_OK || data == null) return
-        sounds.clear(); data.clipData?.let { clip -> for (i in 0 until clip.itemCount) sounds.add(clip.getItemAt(i).uri) } ?: data.data?.let { sounds.add(it) }
-        status.text = "Выбрано звуков: ${sounds.size}"
+    private fun scanNetworkAsync() {
+        if (scanRunning) return
+        scanRunning = true
+        setBusy(true)
+        statusText.text = "СКАНИРОВАНИЕ…"
+        devices.clear()
+        adapter.notifyDataSetChanged()
+
+        Thread {
+            scanNetwork()
+            runOnUiThread {
+                scanRunning = false
+                setBusy(false)
+                statusText.text = "ГОТОВО • найдено: ${devices.size}"
+                adapter.notifyDataSetChanged()
+            }
+        }.start()
     }
 
-    private fun playRandom() {
-        if (sounds.isEmpty()) { status.text = "Сначала выбери звуки"; return }
-        player?.release()
-        player = MediaPlayer.create(this, sounds[Random.nextInt(sounds.size)]).apply { setOnCompletionListener { release() }; start() }
+    private fun scanNetwork() {
+        val wifiManager = applicationContext.getSystemService(Context.WIFI_SERVICE) as WifiManager
+        val ip = intToIp(wifiManager.connectionInfo.ipAddress)
+
+        if (ip == "0.0.0.0") {
+            runOnUiThread { statusText.text = "НЕТ АКТИВНОГО WI-FI" }
+            return
+        }
+
+        val subnet = ip.substringBeforeLast(".")
+
+        try {
+            File("/proc/net/arp").readLines().drop(1).forEach { line ->
+                val parts = line.trim().split(Regex("\\s+"))
+                if (parts.size >= 4 && parts[3] != "00:00:00:00:00:00") {
+                    synchronized(devices) {
+                        if (devices.none { it.startsWith("${parts[0]} |") }) {
+                            devices.add("${parts[0]} | ${parts[3]}")
+                        }
+                    }
+                }
+            }
+        } catch (_: Exception) {
+        }
+
+        val executor = Executors.newFixedThreadPool(24)
+        for (i in 1..254) {
+            if (!scanRunning) break
+            val candidate = "$subnet.$i"
+            executor.submit {
+                if (!scanRunning) return@submit
+                try {
+                    val process = Runtime.getRuntime().exec(
+                        arrayOf("/system/bin/ping", "-c", "1", "-W", "1", candidate)
+                    )
+                    if (process.waitFor() == 0) {
+                        synchronized(devices) {
+                            if (devices.none { it.startsWith("$candidate |") }) {
+                                devices.add("$candidate | pingable")
+                            }
+                        }
+                        runOnUiThread { adapter.notifyDataSetChanged() }
+                    }
+                } catch (_: Exception) {
+                }
+            }
+        }
+
+        executor.shutdown()
+        try {
+            executor.awaitTermination(30, TimeUnit.SECONDS)
+        } catch (_: InterruptedException) {
+            Thread.currentThread().interrupt()
+        }
     }
 
-    override fun onDestroy() { player?.release(); super.onDestroy() }
+    private fun testConnection() {
+        if (testRunning) return
+
+        val target = targetInput.text?.toString()?.trim().orEmpty()
+        val port = portInput.text?.toString()?.toIntOrNull()
+
+        if (target.isEmpty()) {
+            Toast.makeText(this, "Укажи IP или домен", Toast.LENGTH_SHORT).show()
+            return
+        }
+        if (port == null || port !in 1..65535) {
+            Toast.makeText(this, "Порт должен быть от 1 до 65535", Toast.LENGTH_SHORT).show()
+            return
+        }
+
+        testRunning = true
+        setBusy(true)
+        statusText.text = "ПРОВЕРКА $target:$port…"
+
+        Thread {
+            val result = try {
+                val address = InetAddress.getByName(target)
+                DatagramSocket().use { socket ->
+                    val payload = "NetKiller diagnostic".toByteArray()
+                    socket.send(DatagramPacket(payload, payload.size, address, port))
+                }
+                "UDP-пакет отправлен • $target:$port"
+            } catch (e: Exception) {
+                "ОШИБКА • ${e.javaClass.simpleName}"
+            }
+
+            runOnUiThread {
+                testRunning = false
+                setBusy(false)
+                statusText.text = result
+            }
+        }.start()
+    }
+
+    private fun intToIp(ip: Int): String {
+        return String.format(
+            "%d.%d.%d.%d",
+            ip and 0xff,
+            ip shr 8 and 0xff,
+            ip shr 16 and 0xff,
+            ip shr 24 and 0xff
+        )
+    }
 }
