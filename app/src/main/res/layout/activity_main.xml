@@ -1,0 +1,85 @@
+<?xml version="1.0" encoding="utf-8"?>
+<ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_width="match_parent" android:layout_height="match_parent"
+    android:background="#080A0F" android:fillViewport="true">
+    <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content"
+        android:orientation="vertical" android:padding="20dp">
+        <TextView android:layout_width="wrap_content" android:layout_height="wrap_content"
+            android:text="NETKILLER" android:textColor="#FFFFFF" android:textSize="28sp"
+            android:textStyle="bold" android:letterSpacing="0.08" />
+        <TextView android:id="@+id/statusText" android:layout_width="match_parent"
+            android:layout_height="wrap_content" android:layout_marginTop="6dp"
+            android:text="ГОТОВ • локальная сеть не просканирована"
+            android:textColor="#9AA3B2" android:textSize="14sp" />
+        <com.google.android.material.card.MaterialCardView
+            android:layout_width="match_parent" android:layout_height="wrap_content"
+            android:layout_marginTop="18dp" app:cardBackgroundColor="#11151D"
+            app:cardCornerRadius="20dp" app:strokeColor="#242B36" app:strokeWidth="1dp">
+            <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content"
+                android:orientation="vertical" android:padding="16dp">
+                <TextView android:layout_width="wrap_content" android:layout_height="wrap_content"
+                    android:text="TARGET" android:textColor="#B2FA72" android:textSize="12sp"
+                    android:textStyle="bold" />
+                <com.google.android.material.textfield.TextInputLayout
+                    android:layout_width="match_parent" android:layout_height="wrap_content"
+                    android:layout_marginTop="10dp" android:hint="IP или домен"
+                    app:boxBackgroundMode="filled" app:boxBackgroundColor="#181D27"
+                    app:boxCornerRadiusTopStart="14dp" app:boxCornerRadiusTopEnd="14dp"
+                    app:boxCornerRadiusBottomStart="14dp" app:boxCornerRadiusBottomEnd="14dp">
+                    <com.google.android.material.textfield.TextInputEditText
+                        android:id="@+id/targetInput" android:layout_width="match_parent"
+                        android:layout_height="wrap_content" android:inputType="textUri"
+                        android:textColor="#FFFFFF" />
+                </com.google.android.material.textfield.TextInputLayout>
+                <com.google.android.material.textfield.TextInputLayout
+                    android:layout_width="match_parent" android:layout_height="wrap_content"
+                    android:layout_marginTop="10dp" android:hint="Порт"
+                    app:boxBackgroundMode="filled" app:boxBackgroundColor="#181D27"
+                    app:boxCornerRadiusTopStart="14dp" app:boxCornerRadiusTopEnd="14dp"
+                    app:boxCornerRadiusBottomStart="14dp" app:boxCornerRadiusBottomEnd="14dp">
+                    <com.google.android.material.textfield.TextInputEditText
+                        android:id="@+id/portInput" android:layout_width="match_parent"
+                        android:layout_height="wrap_content" android:inputType="number"
+                        android:text="80" android:textColor="#FFFFFF" />
+                </com.google.android.material.textfield.TextInputLayout>
+                <com.google.android.material.button.MaterialButton
+                    android:id="@+id/testBtn" android:layout_width="match_parent"
+                    android:layout_height="56dp" android:layout_marginTop="14dp"
+                    android:text="ПРОВЕРИТЬ СОЕДИНЕНИЕ" android:textStyle="bold"
+                    app:cornerRadius="16dp" />
+            </LinearLayout>
+        </com.google.android.material.card.MaterialCardView>
+        <com.google.android.material.card.MaterialCardView
+            android:layout_width="match_parent" android:layout_height="wrap_content"
+            android:layout_marginTop="14dp" app:cardBackgroundColor="#11151D"
+            app:cardCornerRadius="20dp" app:strokeColor="#242B36" app:strokeWidth="1dp">
+            <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content"
+                android:orientation="vertical" android:padding="16dp">
+                <TextView android:layout_width="wrap_content" android:layout_height="wrap_content"
+                    android:text="LAN SCANNER" android:textColor="#B4A1FF" android:textSize="12sp"
+                    android:textStyle="bold" />
+                <TextView android:layout_width="match_parent" android:layout_height="wrap_content"
+                    android:layout_marginTop="6dp"
+                    android:text="ARP + ping sweep • найденные устройства можно выбрать для диагностики"
+                    android:textColor="#9AA3B2" android:textSize="13sp" />
+                <com.google.android.material.button.MaterialButton
+                    android:id="@+id/scanBtn" android:layout_width="match_parent"
+                    android:layout_height="52dp" android:layout_marginTop="12dp"
+                    android:text="СКАНИРОВАТЬ ЛОКАЛЬНУЮ СЕТЬ" app:cornerRadius="16dp" />
+                <ListView android:id="@+id/deviceList" android:layout_width="match_parent"
+                    android:layout_height="240dp" android:layout_marginTop="8dp"
+                    android:divider="#242B36" android:dividerHeight="1dp" />
+            </LinearLayout>
+        </com.google.android.material.card.MaterialCardView>
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/stopBtn" android:layout_width="match_parent"
+            android:layout_height="52dp" android:layout_marginTop="14dp"
+            android:text="ОСТАНОВИТЬ" app:cornerRadius="16dp"
+            style="@style/Widget.Material3.Button.OutlinedButton" />
+        <TextView android:layout_width="match_parent" android:layout_height="wrap_content"
+            android:layout_marginTop="14dp" android:gravity="center"
+            android:text="NetKiller • Network diagnostics" android:textColor="#606978"
+            android:textSize="12sp" />
+    </LinearLayout>
+</ScrollView>
